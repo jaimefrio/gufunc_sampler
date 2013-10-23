@@ -1,0 +1,394 @@
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+
+#include "Python.h"
+#include "numpy/ndarraytypes.h"
+#include "numpy/ufuncobject.h"
+#include "numpy/npy_3kcompat.h"
+#include<stdlib.h>
+#include<stdio.h>
+#include <math.h>
+
+/* The C preprocessor requires these double indirection levels to allow
+ * stringification and concatenation of a macro value, i.e. MODULE_NAME
+ */
+#define EXPAND_AND_QUOTE(str) QUOTE(str)
+#define QUOTE(str) #str
+#define PASTE(a, b) a ## b
+#define JOIN(a, b) PASTE(a, b)
+
+#define MODULE_NAME _gs_kernels /* edit this line with the module name */
+#define VERSION 0.1
+
+#define MODULE_NAME_STR EXPAND_AND_QUOTE(MODULE_NAME)
+#define VERSION_STR EXPAND_AND_QUOTE(VERSION)
+#define APPEND_MODULE(name) JOIN(name, MODULE_NAME)
+#define PREPEND_MODULE(name) JOIN(MODULE_NAME, name)
+
+/*
+ *****************************************************************************
+ **                              GUFUNC LOOPS                               **
+ *****************************************************************************
+ */
+ 
+static void
+inv_involute_kernel(char **args, npy_intp *dimensions, npy_intp *steps,
+                    void *data)
+{
+    /* Extract input arguments */
+    char *inv_values = args[0],
+         *rel_error = args[1],
+         *out = args[2];
+    npy_intp loop_len = *dimensions;
+    npy_intp inv_val_loop_str = steps[0],
+             rel_err_loop_str = steps[1],
+             out_loop_str = steps[2];
+    
+    /* Variable declarations */
+    npy_intp n;
+    npy_double inv_val, rel_err, err, theta, temp;
+    
+    /* Main gufunc loop */
+    for (n = 0; n < loop_len; n++,
+                              inv_values += inv_val_loop_str,
+                              rel_error += rel_err_loop_str,
+                              out += out_loop_str) {
+        inv_val = *(npy_double *)inv_values;
+        rel_err = *(npy_double *)rel_error;
+        theta = 0;
+        if (inv_val != 0) {
+            err = rel_err;
+            while (err >= rel_err) {
+                temp = atan(theta + inv_val);
+                err = fabs(1.0 - theta / temp);
+                theta = temp;
+            }
+        }
+        *(npy_double *)out = theta;
+    } /* End of main gufunc loop */
+} /* End of inv_involute_kernel function */
+
+static void
+mandelbrot_kernel(char **args, npy_intp *dimensions, npy_intp *steps,
+                      void *data)
+{
+    /*Extract input arguments */
+    char *complex_value = args[0],
+         *iterations = args[1],
+         *out = args[2];
+    npy_intp loop_len = *dimensions;
+    npy_intp c_val_str = steps[0],
+             itr_str = steps[1],
+             out_str = steps[2];
+    
+    /* Variable declarations */
+    npy_intp n, it;
+    npy_cdouble c, z;
+    npy_double zr2, zi2;
+    
+    for (n = 0; n < loop_len; n++,
+                           complex_value += c_val_str,
+                           iterations += itr_str,
+                           out += out_str) {
+        for (c = *(npy_cdouble *)complex_value,
+             *(npy_intp *)out = 0,
+             z.real = 0,
+             z.imag = 0,
+             it = 0; it < *(npy_intp *)iterations; it++) {
+            zr2 = z.real * z.real;
+            zi2 = z.imag * z.imag;
+            if (zr2 + zi2 > 4) {
+                *(npy_intp *)out = ++it;
+                break;
+            }
+        z.imag = 2 * z.real * z.imag + c.imag;
+        z.real = zr2 - zi2 + c.real;
+        }
+    } /* End of main gufunc loop */
+} /* End of mandelbrot_kernel function */
+
+ 
+ 
+ 
+ /**begin repeat
+   #vtx_t=npy_float32,npy_float64,npy_intp#
+   #pnt_t=npy_float32,npy_float64,npy_intp#
+   #vtx_n=f4,f8,ip#
+   #pnt_n=f4,f8,ip#
+ */
+ 
+static void
+pip_vtx@vtx_n@_pnt@pnt_n@_kernel(char **args, npy_intp *dimensions,
+                                 npy_intp *steps, void *data)
+{
+    /* Extract input arguments */
+    char *vertex_x = args[0],
+         *vertex_y = args[1],
+         *point_x = args[2],
+         *point_y = args[3],
+         *out = args[4];
+    npy_intp loop_len = dimensions[0],
+             vtx_len = dimensions[1];
+    npy_intp vtx_x_loop_str = steps[0],
+             vtx_y_loop_str = steps[1],
+             pnt_x_loop_str = steps[2],
+             pnt_y_loop_str = steps[3],
+             out_loop_str = steps[4],
+             vtx_x_str = steps[5],
+             vtx_y_str = steps[6];
+    /* Input arguments types */
+    typedef @vtx_t@ vtx_t;
+    typedef @pnt_t@ pnt_t;
+    
+    /* Variable declarations */
+    char *vtx_x_ptr, /* start of vertices x coord pointer */
+         *vtx_y_ptr, /* start of vertices y coord pointer */
+         *pnt_x_ptr, /* point x coord pointer */
+         *pnt_y_ptr, /* point y coord pointer */
+         *out_ptr, /* out value pointer */
+         *vx_ptr, /* current vertex x coord pointer */
+         *vy_ptr; /* current vertex y coord pointer */
+    npy_intp n, vtx;
+    pnt_t px, py;
+    vtx_t vx, vy, vxp, vyp;
+    
+    /* Main gufunc loop */
+    for (vtx_x_ptr = vertex_x,
+         vtx_y_ptr = vertex_y,
+         pnt_x_ptr = point_x,
+         pnt_y_ptr = point_y,
+         out_ptr = out,
+         n = 0; n < loop_len; n++,
+                              vtx_x_ptr += vtx_x_loop_str,
+                              vtx_y_ptr += vtx_y_loop_str,
+                              pnt_x_ptr += pnt_x_loop_str,
+                              pnt_y_ptr += pnt_y_loop_str,
+                              out_ptr += out_loop_str) {
+        pnt_t px = *(pnt_t *)pnt_x_ptr,
+              py = *(pnt_t *)pnt_y_ptr;
+        /* loop over polygon vertices */
+        for (vx_ptr = vtx_x_ptr,
+             vy_ptr = vtx_y_ptr,
+             vx = *(vtx_t *)vx_ptr,
+             vy = *(vtx_t *)vy_ptr,
+             vxp = *(vtx_t *)(vx_ptr + (vtx_len - 1) * vtx_x_str),
+             vyp = *(vtx_t *)(vy_ptr + (vtx_len - 1) * vtx_y_str),
+             *(npy_bool *)out_ptr = 0,
+             vtx = 0; vtx < vtx_len; vtx++,
+                                     vxp = vx,
+                                     vyp = vy,
+                                     vx_ptr += vtx_x_str,
+                                     vy_ptr += vtx_y_str,
+                                     vx = *(vtx_t *)vx_ptr,
+                                     vy = *(vtx_t *)vy_ptr) {
+            if ((vy <= py && py < vyp || vyp <= py && py < vy) &&
+                (px - vx) < (vxp - vx) * (py - vy) / (vyp - vy))
+                *(npy_bool *)out_ptr ^= 0x1;
+        } /* End of vertices loop */
+    } /* End of main gufunc loop */
+} /* End of pip kernel function */
+
+/**end repeat**/
+ 
+ /*
+ *****************************************************************************
+ **                           GUFUNC REGISTRATION                           **
+ *****************************************************************************
+ */
+ 
+static void *void_data[] = {
+    (void *) NULL, (void *) NULL, (void *) NULL, (void *) NULL, 
+    (void *) NULL, (void *) NULL, (void *) NULL, (void *) NULL, 
+};
+
+static char inv_inv_types[] = {
+    NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE,
+};
+
+PyUFuncGenericFunction inv_inv_funcs[] = {
+    &inv_involute_kernel,
+};
+
+static char mandel_types[] = {
+    NPY_CDOUBLE, NPY_INTP, NPY_INTP,
+};
+
+PyUFuncGenericFunction mandel_funcs[] = {
+    &mandelbrot_kernel,
+};
+
+static char pip_types[] = {
+    NPY_INTP, NPY_INTP, NPY_INTP, NPY_INTP,
+    NPY_BOOL, /* vtxip_pntip */
+    NPY_FLOAT32, NPY_FLOAT32, NPY_FLOAT32, NPY_FLOAT32,
+    NPY_BOOL, /* vtxf4_pntf4 */
+    NPY_FLOAT64, NPY_FLOAT64, NPY_FLOAT64, NPY_FLOAT64,
+    NPY_BOOL, /* vtxf8_pntf8 */
+};
+
+PyUFuncGenericFunction pip_funcs[] = {
+    &pip_vtxip_pntip_kernel,
+    &pip_vtxf4_pntf4_kernel,
+    &pip_vtxf8_pntf8_kernel,
+};
+ 
+ typedef struct gufunc_descriptor_struct {
+    char *name;
+    char *signature;
+    char *doc;
+    int ntypes;
+    int nin;
+    int nout;
+    PyUFuncGenericFunction *funcs;
+    char *types;
+    void *data;
+} GUFUNC_DESCRIPTOR_t;
+
+GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
+    {
+        "inv_involute",
+        "(),()->()",
+        "Compute inverse involute function element-wise.\n\n "
+        "Parameters\n"
+        "----------\n"
+        "theta : array-like\n"
+        "      Input array.\n"
+        "error : array-like\n"
+        "      Relative error in calculation.\n\n"   
+        "Returns\n"
+        "-------\n"
+        "out : ndarray\n"
+        "    The corresponding inverse involute values.\n",
+        1, 2, 1,
+        inv_inv_funcs,
+        inv_inv_types,
+        void_data
+    },
+    {
+        "mandelbrot",
+        "(),()->()",
+        "Checks for Mandelbrot set membership element-wise.\n\n "
+        "Parameters\n"
+        "----------\n"
+        "c_values : complex array-like\n"
+        "         Input array.\n"
+        "iterations : array-like\n"
+        "           Maximum number of iterations.\n\n"   
+        "Returns\n"
+        "-------\n"
+        "out : ndarray\n"
+        "    Number of iterations to divergence, zero if in set.\n",
+        1, 2, 1,
+        mandel_funcs,
+        mandel_types,
+        void_data
+    },
+    
+    {
+        "point_in_polygon",
+        "(n),(n),(),()->()",
+        "Test for point inside polygon on last dimensions, "
+        "broadcast on the rest.\n\n"
+        "    Parameters\n"
+        "     vtx_x : ndarray, (n,)\n\n"
+        "     vtx_y : ndarray, (n,)\n\n"
+        "     point_x : ndarray, ()\n\n"
+        "     point_y : ndarray, ()\n\n"
+        "    Returns\n"
+        "     out : bool ndarray, ()\n\n",
+        3, 4, 1,
+        pip_funcs,
+        pip_types,
+        void_data
+    },
+}; /* End of gufunc_descriptors declaration */
+
+static void
+addUfuncs(PyObject *dictionary) {
+    PyObject *f;
+    int i;
+    const int gufunc_count = sizeof(gufunc_descriptors) /
+                             sizeof(gufunc_descriptors[0]);
+    for (i=0; i < gufunc_count; i++) {
+        GUFUNC_DESCRIPTOR_t* d = &gufunc_descriptors[i];
+        f = PyUFunc_FromFuncAndDataAndSignature(d->funcs,
+                                                d->data,
+                                                d->types,
+                                                d->ntypes,
+                                                d->nin,
+                                                d->nout,
+                                                PyUFunc_None,
+                                                d->name,
+                                                d->doc,
+                                                0,
+                                                d->signature);
+        PyDict_SetItemString(dictionary, d->name, f);
+        Py_DECREF(f);
+    }
+}
+
+/*
+ *****************************************************************************
+ **                          MODULE INITIALIZATION                          **
+ *****************************************************************************
+ */
+ 
+ static PyMethodDef module_methods[] = {
+    {NULL, NULL, 0, NULL}        /* Sentinel */
+};
+
+#if defined(NPY_PY3K)
+static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        NUMPYPE_MODULE_NAME,
+        NULL,
+        -1,
+        module_methods,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+};
+#endif
+
+#if defined(NPY_PY3K)
+#define RETVAL m
+PyObject*
+APPEND_MODULE(PyInit_) (void)/**PyInit__numpype(void)*/
+#else
+#define RETVAL
+PyMODINIT_FUNC
+APPEND_MODULE(init) (void)
+#endif
+{
+    PyObject *m;
+    PyObject *d;
+    PyObject *version;
+
+#if defined(NPY_PY3K)
+    m = PyModule_Create(&moduledef);
+#else
+    m = Py_InitModule(MODULE_NAME_STR, module_methods);
+#endif
+    if (m == NULL)
+        return RETVAL;
+
+    import_array();
+    import_ufunc();
+
+    d = PyModule_GetDict(m);
+
+    version = PyString_FromString(VERSION_STR);
+    PyDict_SetItemString(d, "__version__", version);
+    Py_DECREF(version);
+
+    /* Load the ufunc operators into the module's namespace */
+    addUfuncs(d);
+
+    if (PyErr_Occurred()) {
+        PyErr_SetString(PyExc_RuntimeError,
+                        "cannot load " MODULE_NAME_STR " module.");
+    }
+
+    return RETVAL;
+}
+ 
