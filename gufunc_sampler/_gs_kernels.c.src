@@ -247,7 +247,7 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
     {
         "inv_involute",
         "(),()->()",
-        "Compute inverse involute function element-wise.\n\n "
+        "Compute inverse involute function element-wise.\n\n"
         "Parameters\n"
         "----------\n"
         "theta : array-like\n"
@@ -266,7 +266,7 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
     {
         "mandelbrot",
         "(),()->()",
-        "Checks for Mandelbrot set membership element-wise.\n\n "
+        "Checks for Mandelbrot set membership element-wise.\n\n"
         "Parameters\n"
         "----------\n"
         "c_values : complex array-like\n"
@@ -288,13 +288,20 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
         "(n),(n),(),()->()",
         "Test for point inside polygon on last dimensions, "
         "broadcast on the rest.\n\n"
-        "    Parameters\n"
-        "     vtx_x : ndarray, (n,)\n\n"
-        "     vtx_y : ndarray, (n,)\n\n"
-        "     point_x : ndarray, ()\n\n"
-        "     point_y : ndarray, ()\n\n"
-        "    Returns\n"
-        "     out : bool ndarray, ()\n\n",
+        "Parameters\n"
+        "----------\n"
+        "vtx_x : ndarray, (n,)\n"
+        "      x coordinates of polygon vertices.\n"
+        "vtx_y : ndarray, (n,)\n"
+        "      y coordinates of polygon vertices.\n"
+        "point_x : ndarray, ()\n"
+        "        x coordinate of point.\n"
+        "point_y : ndarray, ()\n"
+        "        y coordinate of point.\n\n"
+        "Returns\n"
+        "-------\n"
+        "out : bool ndarray, ()\n"
+        "    True if in polygon False if not.\n",
         3, 4, 1,
         pip_funcs,
         pip_types,
